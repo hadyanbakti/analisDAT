@@ -21,6 +21,8 @@ class Dataset(Base):
     quality_score = Column(Float, nullable=True)
     quality_details = Column(JSON, nullable=True)
     cleaning_recommendations = Column(JSON, nullable=True)
+    cleaned_filename = Column(String(255), nullable=True)
+    cleaning_log = Column(JSON, nullable=True)
     insights = Column(JSON, nullable=True)
     visualizations = Column(JSON, nullable=True)
     storytelling_report = Column(Text, nullable=True)

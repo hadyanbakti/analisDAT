@@ -14,7 +14,7 @@ st.title("📊 analisDAT")
 st.caption("Your AI-Powered Data Analyst Assistant — Backend Tester")
 
 # ─── Session State ───
-for k in ["dataset_id", "datasets", "chat_messages"]:
+for k in ["dataset_id", "datasets", "chat_messages", "cleaning_plan", "cleaning_preview", "cleaning_result"]:
     if k not in st.session_state:
         st.session_state[k] = None if k != "chat_messages" else []
 
@@ -118,11 +118,11 @@ with st.sidebar:
         st.info("No datasets yet. Upload one below.")
 
 api_paths = {
-    "📋 Data Profiling": "profile",
-    "✅ Data Quality": "quality",
+    "📋 Profiling": "profile",
+    "✅ Quality": "quality",
     "🧹 Cleaning Recs": "cleaning-recommendations",
     "📈 Statistics": "statistics",
-    "🎨 Visualizations": "visualizations",
+    "🎨 LLM Viz": "llm-visualizations",
     "💡 Insights": "insights",
 }
 
@@ -240,6 +240,24 @@ with tab2:
                     st.info(data.get("summary", ""))
                     for vi, v in enumerate(viz_list):
                         st.markdown(f"**{v['title']}** `({v['chart_type']})`")
+                        reason = v.get("reason", "")
+                        if reason:
+                            st.caption(f"💡 {reason}")
+                        try:
+                            fig = build_plotly(v)
+                            st.plotly_chart(fig, use_container_width=True)
+                        except Exception as e:
+                            st.error(f"Render failed: {e}")
+                            st.json(v, expanded=False)
+
+                elif path == "llm-visualizations":
+                    viz_list = data.get("visualizations", [])
+                    st.info(data.get("summary", ""))
+                    for vi, v in enumerate(viz_list):
+                        st.markdown(f"**{v['title']}** `({v['chart_type']})`")
+                        reason = v.get("reason", "")
+                        if reason:
+                            st.caption(f"💡 {reason}")
                         try:
                             fig = build_plotly(v)
                             st.plotly_chart(fig, use_container_width=True)
@@ -258,6 +276,92 @@ with tab2:
                             st.markdown(f"{icon} **{ins['title']}** — Score: `{score:.0f}`")
                             st.caption(ins["description"])
                             st.json(ins["supporting_data"], expanded=False)
+
+            st.divider()
+
+        # ─── LLM Cleaning Section ───
+        st.subheader("🧹 LLM Data Cleaning")
+        col_plan, col_preview, col_apply = st.columns(3)
+        with col_plan:
+            if st.button("🤖 Generate Plan", use_container_width=True, type="primary"):
+                with st.spinner("LLM is analyzing data quality..."):
+                    plan = api("POST", f"/analysis/{did}/llm-clean/plan")
+                if plan:
+                    st.session_state["cleaning_plan"] = plan
+                    st.rerun()
+        with col_preview:
+            preview_disabled = not st.session_state.get("cleaning_plan")
+            if st.button("👁 Preview", use_container_width=True, disabled=preview_disabled):
+                plan = st.session_state.get("cleaning_plan", {})
+                steps = plan.get("steps", [])
+                approved = [s for s in steps if s.get("approved", True)]
+                if approved:
+                    with st.spinner("Applying to sample (100 rows)..."):
+                        preview_result = api("POST", f"/analysis/{did}/llm-clean/preview", json=approved)
+                    if preview_result:
+                        st.session_state["cleaning_preview"] = preview_result
+                        st.rerun()
+        with col_apply:
+            apply_disabled = not st.session_state.get("cleaning_plan")
+            if st.button("✅ Apply & Save", use_container_width=True, type="primary", disabled=apply_disabled):
+                plan = st.session_state.get("cleaning_plan", {})
+                steps = plan.get("steps", [])
+                approved = [s for s in steps if s.get("approved", True)]
+                if approved:
+                    with st.spinner("Applying cleaning to full dataset..."):
+                        apply_result = api("POST", f"/analysis/{did}/llm-clean/apply", json=approved)
+                    if apply_result:
+                        st.session_state["cleaning_result"] = apply_result
+                        st.session_state["datasets"] = api("GET", "/datasets") or []
+                        st.rerun()
+
+        if st.session_state.get("cleaning_plan"):
+            plan = st.session_state["cleaning_plan"]
+            st.info(plan.get("summary", ""))
+            for si, step in enumerate(plan.get("steps", [])):
+                checked = st.checkbox(
+                    f"[{step.get('priority','medium').upper()}] {step.get('description','')}",
+                    value=step.get("approved", True),
+                    key=f"cleaning_step_{si}",
+                )
+                plan["steps"][si]["approved"] = checked
+                with st.expander(f"📝 Step {step.get('id','')} Details"):
+                    st.markdown(f"**Method:** `{step.get('method','')}`")
+                    st.markdown(f"**Column:** `{step.get('column','')}`")
+                    st.markdown(f"**Reason:** {step.get('reason','')}")
+                    st.code(step.get("code", ""), language="python")
+
+        if st.session_state.get("cleaning_preview"):
+            preview = st.session_state["cleaning_preview"]
+            with st.expander("📊 Preview Results", expanded=True):
+                for pr in preview.get("preview_results", []):
+                    if pr.get("success"):
+                        st.success(f"✅ Step {pr['step_id']}: {pr['description']}")
+                        bc = st.columns(2)
+                        with bc[0]:
+                            st.caption("Before")
+                            if pr.get("before", {}).get("sample"):
+                                st.write(pr["before"]["sample"])
+                            st.caption(f"Nulls: {pr['before'].get('null_count', '?')}")
+                        with bc[1]:
+                            st.caption("After")
+                            if pr.get("after", {}).get("sample"):
+                                st.write(pr["after"]["sample"])
+                            st.caption(f"Nulls: {pr['after'].get('null_count', '?')}")
+                    else:
+                        st.error(f"❌ Step {pr['step_id']} failed: {pr.get('error', 'Unknown error')}")
+
+        if st.session_state.get("cleaning_result"):
+            cr = st.session_state["cleaning_result"]
+            st.success(f"✅ Saved as `{cr['cleaned_filename']}`")
+            cols = st.columns(2)
+            cols[0].metric("Original Rows", cr.get("original_rows", 0))
+            cols[1].metric("Cleaned Rows", cr.get("cleaned_rows", 0))
+            for step in cr.get("applied_steps", []):
+                if step.get("success"):
+                    st.success(f"✅ {step['description']}")
+                else:
+                    st.error(f"❌ {step['description']}: {step.get('error','')}")
 
             st.divider()
 

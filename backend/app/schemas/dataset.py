@@ -72,6 +72,43 @@ class DashboardResponse(BaseModel):
     summary: str
 
 
+class CleaningStep(BaseModel):
+    id: int
+    description: str
+    method: str
+    column: Optional[str] = None
+    reason: str
+    code: str
+    priority: str = "medium"
+    approved: bool = True
+
+
+class LLMCleaningPlan(BaseModel):
+    summary: str
+    steps: List[CleaningStep]
+
+
+class CleaningPreviewResult(BaseModel):
+    step_id: int
+    description: str
+    before: Dict[str, Any]
+    after: Dict[str, Any]
+    error: Optional[str] = None
+    success: bool = True
+
+
+class CleaningPreviewResponse(BaseModel):
+    preview_results: List[CleaningPreviewResult]
+
+
+class ApplyCleaningResponse(BaseModel):
+    cleaned_filename: str
+    cleaned_file_path: str
+    original_rows: int
+    cleaned_rows: int
+    applied_steps: List[Dict[str, Any]]
+
+
 class Insight(BaseModel):
     id: str
     title: str

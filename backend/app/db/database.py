@@ -55,3 +55,11 @@ async def init_db():
     import app.models.dataset  # noqa: F401 - register models
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    try:
+        async with engine.begin() as conn:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE datasets ADD COLUMN cleaned_filename VARCHAR(255)"))
+            await conn.execute(text("ALTER TABLE datasets ADD COLUMN cleaning_log JSON"))
+    except Exception:
+        pass

@@ -17,7 +17,7 @@ from app.schemas.dataset import (
 )
 from app.services.cleaning_recommendations import cleaning_service
 from app.services.statistical_analysis import statistical_service
-from app.services.visualization import visualization_service
+from app.services.llm_visualization import llm_viz_service
 from app.services.insight_engine import insight_service
 from app.services.llm_layer import llm_service
 
@@ -126,7 +126,7 @@ async def process_dataset_background(dataset_id: int, file_path: str, file_type:
             quality_result = data_quality_service.calculate_quality_score(df)
             cleaning_result = cleaning_service.generate_recommendations(df, quality_result)
             stats_result = statistical_service.analyze(df)
-            viz_result = visualization_service.generate_dashboard(df, profiling_result, stats_result)
+            viz_result = await llm_viz_service.generate_visualizations(df, profiling_result, stats_result)
             insights_result = insight_service.discover_insights(df, profiling_result, stats_result, quality_result)
             ranked_insights = insight_service.rank_insights(insights_result)
             story_result = await llm_service.generate_storytelling_report(df, ranked_insights, quality_result, profiling_result)
