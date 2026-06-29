@@ -1,18 +1,18 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 import os
 
 
 class Settings(BaseSettings):
     APP_NAME: str = "analisDAT"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
+    DEBUG: bool = False
 
     API_V1_PREFIX: str = "/api/v1"
 
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/analisdat"
-    DATABASE_POOL_SIZE: int = 10
-    DATABASE_MAX_OVERFLOW: int = 20
+    DATABASE_POOL_SIZE: int = 5
+    DATABASE_MAX_OVERFLOW: int = 10
 
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_ENABLED: bool = False
@@ -37,11 +37,16 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str = "analisdat"
     MINIO_SECURE: bool = False
 
-    CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:8501",
+    ]
 
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 
 settings = Settings()
