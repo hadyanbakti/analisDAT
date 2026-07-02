@@ -185,4 +185,4 @@ class DatasetDetailResponse(DatasetResponse):
     cleaning_recommendations: Optional[DataCleaningResult] = None
     insights: Optional[InsightRanking] = None
     visualizations: Optional[DashboardResponse] = None
-    storytelling_report: Optional[StorytellingReport] = None
+    storytelling_report: Optional[str] = None

@@ -37,11 +37,7 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str = "analisdat"
     MINIO_SECURE: bool = False
 
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:8501",
-    ]
+    CORS_ORIGINS: List[str] = ["*"]
 
     class Config:
         env_file = ".env"
